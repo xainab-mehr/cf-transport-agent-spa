@@ -164,7 +164,7 @@ export default function Page() {
     <main className="mx-auto flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card
         className={cn(
-          "flex h-[720px] w-full max-w-[580px] flex-col overflow-hidden shadow-xl"
+          "flex h-[100dvh] max-h-[720px] w-full max-w-[580px] flex-col overflow-hidden shadow-xl"
         )}
       >
         <CardHeader className="flex shrink-0 flex-row items-center justify-between pb-4">
