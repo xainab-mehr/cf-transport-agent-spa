@@ -139,23 +139,6 @@ export default function Page() {
     [handleSendText]
   );
 
-  const newRequest = useCallback(async () => {
-    setMessages([]);
-    setTextInput("");
-
-    setAgentState("disconnecting");
-    try {
-      await conversation.endSession();
-    } catch {}
-
-    sessionStartedRef.current = false;
-    startingRef.current = false;
-    setAgentState("disconnected");
-
-    // start fresh
-    startTextSession();
-  }, [conversation, startTextSession]);
-
   const isTransitioning =
     agentState === "connecting" || agentState === "disconnecting";
   const isConnected = agentState === "connected";
@@ -187,25 +170,15 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={newRequest}
-              className="rounded-md border px-3 py-1 text-sm"
-              disabled={isTransitioning}
-            >
-              New request
-            </button>
-
-            <div
-              className={cn(
-                "h-2 w-2 rounded-full transition-all duration-300",
-                isConnected &&
-                  "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]",
-                isTransitioning && "animate-pulse bg-white/40",
-                !isConnected && !isTransitioning && "bg-muted-foreground/40"
-              )}
-            />
-          </div>
+          <div
+            className={cn(
+              "h-2 w-2 rounded-full transition-all duration-300",
+              isConnected &&
+                "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]",
+              isTransitioning && "animate-pulse bg-white/40",
+              !isConnected && !isTransitioning && "bg-muted-foreground/40"
+            )}
+          />
         </CardHeader>
 
         <CardContent className="flex-1 overflow-hidden p-0">
