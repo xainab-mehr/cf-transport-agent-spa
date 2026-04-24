@@ -42,6 +42,7 @@ export default function Page() {
   const mountedRef = useRef(true);
   const startingRef = useRef(false);
   const sessionStartedRef = useRef(false);
+  const keepaliveRef = useRef<NodeJS.Timeout>(); // NEW: keepalive interval ref
 
   const conversation = useConversation({
     textOnly: true,
@@ -57,9 +58,7 @@ export default function Page() {
       }
     },
     onError: (error) => {
-      console.error("ElevenLabs error:", error);
-      if (mountedRef.current) setAgentState("disconnected");
-      startingRef.current = false;
+      console.error("ElevenLabs error:", error);if (mountedRef.current) setAgentState("disconnected");startingRef.current = false;
       sessionStartedRef.current = false;
     },
   });
@@ -85,8 +84,7 @@ export default function Page() {
 
           if (status.status === "connected") {
             sessionStartedRef.current = true;
-            startingRef.current = false;
-          }
+            startingRef.current = false;}
 
           if (status.status === "disconnected") {
             sessionStartedRef.current = false;
@@ -95,8 +93,7 @@ export default function Page() {
         },
       });
 
-      startingRef.current = false;
-    } catch (e) {
+      startingRef.current = false;} catch (e) {
       startingRef.current = false;
       sessionStartedRef.current = false;
       if (mountedRef.current) setAgentState("disconnected");
@@ -118,6 +115,28 @@ export default function Page() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // NEW: Keepalive mechanism to prevent connection timeout
+  useEffect(() => {
+    // Start keepalive when connected
+    if (agentState === "connected") {
+      keepaliveRef.current = setInterval(() => {
+        conversation.sendUserActivity();
+      }, 120000); // Every 2 minutes (120,000ms)
+    }
+
+    // Clear keepalive when not connected
+    if (agentState !== "connected" && keepaliveRef.current) {
+      clearInterval(keepaliveRef.current);
+      keepaliveRef.current = undefined;
+    }
+
+    return () => {
+      if (keepaliveRef.current) {
+        clearInterval(keepaliveRef.current);
+      }
+    };
+  }, [agentState, conversation]);
 
   const handleSendText = useCallback(() => {
     const trimmed = textInput.trim();
@@ -164,8 +183,8 @@ export default function Page() {
                 {isConnected
                   ? "Connected"
                   : isTransitioning
-                    ? "Connecting..."
-                    : "Starting..."}
+                  ? "Connecting..."
+                  : "Starting..."}
               </p>
             </div>
           </div>
@@ -204,7 +223,7 @@ export default function Page() {
                     <Message from={m.role}>
                       <MessageContent className="max-w-full min-w-0">
                         {/* Use Response (markdown/links) only for assistant to avoid Streamdown link-safety
-                           injecting invalid HTML for user-entered emails/links. */}
+                            injecting invalid HTML for user-entered emails/links. */}
                         {m.role === "assistant" ? (
                           <Response className="w-auto whitespace-pre-wrap [overflow-wrap:anywhere]">
                             {m.content}
@@ -259,7 +278,6 @@ export default function Page() {
     </main>
   );
 }
-
 
 
 
