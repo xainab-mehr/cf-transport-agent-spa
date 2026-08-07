@@ -42,7 +42,7 @@ export default function Page() {
   const mountedRef = useRef(true);
   const startingRef = useRef(false);
   const sessionStartedRef = useRef(false);
-  const keepaliveRef = useRef<NodeJS.Timeout>(); // NEW: keepalive interval ref
+  const keepaliveRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const conversation = useConversation({
     textOnly: true,
