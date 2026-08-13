@@ -15,7 +15,7 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
-      "group flex w-full items-end justify-end gap-2 py-4",
+      "group flex w-full items-end justify-end py-2",
       from === "user" ? "is-user" : "is-assistant flex-row-reverse justify-end",
       className
     )}
@@ -24,18 +24,18 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
 )
 
 const messageContentVariants = cva(
-  "is-user:dark flex flex-col gap-2 overflow-hidden rounded-lg text-sm",
+  "is-user:dark flex flex-col gap-2 overflow-hidden text-sm font-light leading-relaxed",
   {
     variants: {
       variant: {
         contained: [
-          "max-w-[80%] px-4 py-3",
-          "group-[.is-user]:bg-primary group-[.is-user]:text-primary-foreground",
-          "group-[.is-assistant]:bg-secondary group-[.is-assistant]:text-foreground",
+          "max-w-[92%] px-4 py-3 sm:max-w-[86%]",
+          "group-[.is-user]:bg-cf-navy group-[.is-user]:text-white group-[.is-user]:rounded-2xl group-[.is-user]:rounded-br-md",
+          "group-[.is-assistant]:bg-cf-pale/70 group-[.is-assistant]:text-cf-navy group-[.is-assistant]:rounded-2xl group-[.is-assistant]:rounded-bl-md",
         ],
         flat: [
-          "group-[.is-user]:max-w-[80%] group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
-          "group-[.is-assistant]:text-foreground",
+          "group-[.is-user]:max-w-[80%] group-[.is-user]:bg-cf-pale group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-cf-navy group-[.is-user]:rounded-2xl",
+          "group-[.is-assistant]:text-cf-navy",
         ],
       },
     },
