@@ -176,7 +176,7 @@ export default function Page() {
         </div>
 
         {/* Chat widget */}
-        <div className="flex h-[550px] w-full max-w-[420px] flex-col overflow-hidden rounded-2xl border border-cf-pale bg-white shadow-[0_20px_60px_-20px_rgba(33,72,102,0.3)]">
+        <div className="flex h-[650px] w-full max-w-[500px] flex-col overflow-hidden rounded-2xl border border-cf-pale bg-white shadow-[0_20px_60px_-20px_rgba(33,72,102,0.3)]">
           {/* Header */}
           <div className="flex items-center gap-3 bg-cf-navy px-4 py-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15">
