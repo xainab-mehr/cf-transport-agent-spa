@@ -168,10 +168,10 @@ export default function Page() {
       {/* Chat widget container with arrow */}
       <div className="relative">
         {/* Arrow pointing to chat widget */}
-        <div className="absolute -left-32 top-1/2 hidden -translate-y-1/2 items-center gap-2 lg:flex">
-          <span className="text-sm font-medium text-cf-ocean">Start here</span>
-          <svg className="h-8 w-8 text-cf-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        <div className="absolute -left-44 top-1/2 hidden -translate-y-1/2 items-center gap-3 lg:flex">
+          <span className="text-xl font-semibold text-cf-ocean">Start here</span>
+          <svg className="h-12 w-12 text-cf-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
           </svg>
         </div>
 
