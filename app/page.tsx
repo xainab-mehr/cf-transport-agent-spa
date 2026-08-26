@@ -1,6 +1,12 @@
 "use client";
 
+import Intercom from "@intercom/messenger-js-sdk";
+
 export default function Page() {
+  Intercom({
+    app_id: "rxdahpuy",
+  });
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
       <div className="text-center">
