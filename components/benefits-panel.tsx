@@ -60,9 +60,8 @@ const GLASS_SURFACE =
   "border border-white/60 bg-white/30 shadow-[0_8px_32px_-12px_rgba(33,72,102,0.25)] backdrop-blur-xl";
 
 /**
- * Glassmorphism benefits column shown alongside the chat widget.
- * Fills the full height of its grid cell so the top and bottom
- * edges align with the chat column.
+ * Restored glassmorphism benefit cards below the centered chat widget.
+ * A distinct eyebrow, headline, and supporting paragraph provide hierarchy.
  */
 export function BenefitsPanel({
   className,
@@ -75,22 +74,20 @@ export function BenefitsPanel({
     <div
       id={id}
       className={cn(
-        "flex h-full w-full scroll-mt-20 flex-col justify-between gap-2.5 xl:gap-3",
+        "flex h-full w-full scroll-mt-20 flex-col gap-3 pt-6 pb-8 sm:pt-10 xl:gap-3",
         className
       )}
     >
-      {/* Headline. Tightened at laptop sizes so the six feature boxes below
-          have enough shared row height for their copy. */}
-      <div className="flex shrink-0 flex-col gap-2 xl:gap-2.5">
-        <h1 className="cf-headline max-w-[26ch] text-3xl leading-[1.12] font-light text-cf-navy lg:max-w-[34ch] lg:text-[1.7rem] xl:max-w-[26ch] xl:text-[2.35rem]">
-          Your journey deserves more than{" "}
-          <span className="font-medium text-cf-ocean">standard shipping</span>
-        </h1>
-
-        <p className="cf-subhead max-w-[62ch] text-[13.5px] leading-relaxed font-light text-cf-slate lg:max-w-[76ch] lg:text-[12.5px] lg:leading-snug xl:max-w-[62ch] xl:text-[15px] xl:leading-relaxed">
-          Whether you are transporting embryos, eggs, or sperm, every CryoFuture
-          transport is handled by dedicated medical couriers and monitored end to
-          end.
+      <div className="mb-5 flex max-w-[680px] shrink-0 flex-col gap-3">
+        <p className="text-[9px] font-medium tracking-[0.19em] text-cf-ocean uppercase">
+          Why CryoFuture Transport
+        </p>
+        <h2 className="cf-headline text-[clamp(1.65rem,3.2vw,2.55rem)] leading-[1.15] font-light tracking-[-0.03em] text-cf-navy">
+          Your journey deserves more than standard shipping
+        </h2>
+        <p className="cf-subhead max-w-[65ch] text-xs leading-[1.7] font-light text-cf-slate">
+          Every mile is accounted for with six layers of specialized transport
+          care—from dedicated couriers through continuous logistics oversight.
         </p>
       </div>
 
