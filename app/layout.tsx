@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
-import { Analytics, AnalyticsNoScript } from "@/components/analytics";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -26,15 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        {/* Consent Mode defaults load before the container. Renders nothing
-            unless NEXT_PUBLIC_GTM_ID is set. */}
-        <Analytics />
-      </head>
-      <body
-        className={`${poppins.variable} font-sans antialiased`}
-      >
-        <AnalyticsNoScript />
+      <body className={`${poppins.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>

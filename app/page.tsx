@@ -19,13 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Message, MessageContent } from "@/components/ui/message";
 import { Orb } from "@/components/ui/orb";
 import { Response } from "@/components/ui/response";
-import {
-  trackAgentConnected,
-  trackChatStarted,
-  trackLearnMoreClick,
-  trackPhoneClick,
-  trackPrivacyPolicyClick,
-} from "@/lib/analytics-events";
 
 /**
  * Design reminder — Guided Clinical Focus:
@@ -62,8 +55,6 @@ export default function Page() {
   const startingRef = useRef(false);
   const sessionStartedRef = useRef(false);
   const keepaliveRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  /** Guards the chat_started event so it fires once per session, not per message. */
-  const chatStartedRef = useRef(false);
 
   const conversation = useConversation({
     textOnly: true,
@@ -106,7 +97,6 @@ export default function Page() {
           setAgentState(status.status as AgentState);
 
           if (status.status === "connected") {
-            if (!sessionStartedRef.current) trackAgentConnected();
             sessionStartedRef.current = true;
             startingRef.current = false;
           }
@@ -168,13 +158,6 @@ export default function Page() {
     if (agentState !== "connected") return;
 
     setTextInput("");
-
-    // Records only that a conversation began, never the message content.
-    if (!chatStartedRef.current) {
-      chatStartedRef.current = true;
-      trackChatStarted();
-    }
-
     setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
     conversation.sendUserMessage(trimmed);
   }, [textInput, agentState, conversation]);
@@ -408,7 +391,6 @@ export default function Page() {
                   <a
                     className="underline decoration-cf-blue/40 underline-offset-2 transition-colors hover:text-cf-ocean hover:decoration-cf-ocean"
                     href="https://cryofuture.com/privacy-policy/"
-                    onClick={trackPrivacyPolicyClick}
                     rel="noopener noreferrer"
                     target="_blank"
                   >
@@ -421,7 +403,6 @@ export default function Page() {
             {/* Speak to a live team member */}
             <a
               href="tel:+16502627464"
-              onClick={trackPhoneClick}
               className="group flex w-full items-center justify-center gap-3 rounded-full border border-white/70 bg-white/60 px-4 py-2.5 shadow-[0_8px_28px_-14px_rgba(33,72,102,0.3)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-cf-blue/50 hover:bg-white/80 sm:px-5 sm:py-3"
             >
               <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-cf-navy text-white shadow-[0_4px_12px_-4px_rgba(33,72,102,0.55)] sm:size-9">
@@ -452,7 +433,6 @@ export default function Page() {
             {/* Mobile only: scroll cue down to the service features */}
             <a
               href="#service-features"
-              onClick={trackLearnMoreClick}
               className="group flex w-full items-center justify-center gap-2 rounded-full border border-cf-blue/25 bg-white/40 px-4 py-2.5 text-[13px] font-light text-cf-ocean backdrop-blur-xl transition-colors duration-300 hover:border-cf-blue/50 hover:bg-white/60"
             >
               Learn more about our transport care
