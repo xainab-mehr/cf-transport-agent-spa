@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConversation } from "@elevenlabs/react";
-import { ChevronDownIcon, PhoneIcon, RotateCcwIcon, SendIcon } from "lucide-react";
+import { ChevronDownIcon, PhoneIcon, SendIcon } from "lucide-react";
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
@@ -26,18 +26,22 @@ import { Response } from "@/components/ui/response";
  * and reserve soft blue motion exclusively for the first composer interaction.
  */
 
-type AgentState = "disconnected" | "connecting" | "connected" | "disconnecting" | "failed";
-type FailureKind = "connect" | "dropped" | null;
+/**
+ * "failed" is distinct from "disconnected".
+ *   disconnected = no live session, but nothing has gone wrong (pre-connect, clean teardown)
+ *   failed       = we tried and it broke; the user is stuck unless they retry
+ * Without this split, a broken WebSocket is indistinguishable from a user who
+ * simply wasn't interested — both produce a zero-message conversation.
+ */
+type AgentState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "disconnecting"
+  | "failed";
 
-/** Analytics helper – fires to PostHog when present, else logs to console */
-function track(event: string, props?: Record<string, unknown>) {
-  const posthog = typeof window !== "undefined" && (window as unknown as { posthog?: { capture: (e: string, p?: Record<string, unknown>) => void } }).posthog;
-  if (posthog) {
-    posthog.capture(event, props);
-  } else {
-    console.debug("[analytics]", event, props);
-  }
-}
+/** Which kind of failure, so the copy can be accurate. */
+type FailureKind = "connect" | "dropped" | null;
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -53,6 +57,19 @@ const DEFAULT_AGENT = {
 /** CryoFuture brand colors used by the animated orb */
 const ORB_COLORS: [string, string] = ["#58B7BD", "#4E95BB"];
 
+/**
+ * Fire-and-forget analytics. Uses PostHog if it has been installed on the page,
+ * otherwise logs to the console so events can be verified in DevTools today.
+ * Never pass message content here — counts, lengths and timings only.
+ */
+function track(event: string, props?: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  const ph = (window as unknown as { posthog?: { capture?: (e: string, p?: unknown) => void } })
+    .posthog;
+  if (ph?.capture) ph.capture(event, props);
+  else console.debug("[analytics]", event, props);
+}
+
 export default function Page() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [agentState, setAgentState] = useState<AgentState>("disconnected");
@@ -67,8 +84,9 @@ export default function Page() {
   const startingRef = useRef(false);
   const sessionStartedRef = useRef(false);
   const keepaliveRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const connectStartedAtRef = useRef<number | null>(null);
-  const userMsgCountRef = useRef(0);
+
+  const connectStartedAt = useRef(0);
+  const userMsgCount = useRef(0);
 
   const conversation = useConversation({
     textOnly: true,
@@ -85,24 +103,24 @@ export default function Page() {
     },
     onError: (error) => {
       console.error("ElevenLabs error:", error);
-      if (!mountedRef.current) return;
 
-      const wasConnected = sessionStartedRef.current;
-      const kind: FailureKind = wasConnected ? "dropped" : "connect";
-      setFailureKind(kind);
-      setAgentState("failed");
-
-      if (wasConnected) {
-        track("chat_connection_lost", { messages_sent: userMsgCountRef.current });
-      } else {
-        const elapsed = connectStartedAtRef.current
-          ? Date.now() - connectStartedAtRef.current
-          : null;
-        track("chat_connect_failed", { connect_ms: elapsed });
-      }
+      // Read this BEFORE resetting it: if a session had already gone live,
+      // this is a mid-conversation drop, not a failure to dial out.
+      const wasLive = sessionStartedRef.current;
 
       startingRef.current = false;
       sessionStartedRef.current = false;
+
+      if (mountedRef.current) {
+        setFailureKind(wasLive ? "dropped" : "connect");
+        setAgentState("failed");
+      }
+
+      const errorName = (error as { name?: string })?.name ?? "unknown";
+      track(wasLive ? "chat_connection_lost" : "chat_connect_failed", {
+        reason: errorName,
+        user_messages: userMsgCount.current,
+      });
     },
   });
 
@@ -111,9 +129,9 @@ export default function Page() {
     if (agentState === "connecting" || agentState === "connected") return;
 
     startingRef.current = true;
-    setAgentState("connecting");
+    connectStartedAt.current = performance.now();
     setFailureKind(null);
-    connectStartedAtRef.current = Date.now();
+    setAgentState("connecting");
     track("chat_connect_attempted");
 
     try {
@@ -127,26 +145,38 @@ export default function Page() {
           if (!mountedRef.current) return;
 
           if (status.status === "connected") {
-            const elapsed = connectStartedAtRef.current
-              ? Date.now() - connectStartedAtRef.current
-              : null;
-            track("chat_connected", { connect_ms: elapsed });
-            setAgentState("connected");
             sessionStartedRef.current = true;
             startingRef.current = false;
-            userMsgCountRef.current = 0;
-          } else if (status.status === "disconnected") {
-            // Only treat as clean disconnect if we didn't already mark as failed
-            if (sessionStartedRef.current) {
-              // Session ended gracefully (not an error)
-              setAgentState("disconnected");
-            }
+            setFailureKind(null);
+            setAgentState("connected");
+            track("chat_connected", {
+              ms_to_connect: Math.round(performance.now() - connectStartedAt.current),
+            });
+            return;
+          }
+
+          if (status.status === "disconnected") {
+            const wasLive = sessionStartedRef.current;
             sessionStartedRef.current = false;
             startingRef.current = false;
-          } else {
-            // connecting, disconnecting
-            setAgentState(status.status as AgentState);
+
+            if (wasLive) {
+              // The line was open and went away on its own — treat as a drop,
+              // not as a normal idle state, so the user gets a way back.
+              setFailureKind("dropped");
+              setAgentState("failed");
+              track("chat_connection_lost", {
+                reason: "status_disconnected",
+                user_messages: userMsgCount.current,
+              });
+              return;
+            }
+
+            setAgentState("disconnected");
+            return;
           }
+
+          setAgentState(status.status as AgentState);
         },
       });
 
@@ -154,17 +184,28 @@ export default function Page() {
     } catch (e) {
       startingRef.current = false;
       sessionStartedRef.current = false;
+
       if (mountedRef.current) {
         setFailureKind("connect");
         setAgentState("failed");
-        const elapsed = connectStartedAtRef.current
-          ? Date.now() - connectStartedAtRef.current
-          : null;
-        track("chat_connect_failed", { connect_ms: elapsed });
       }
+
+      const errName = (e as { name?: string })?.name ?? "unknown";
+      track("chat_connect_failed", {
+        reason: errName,
+        ms_elapsed: Math.round(performance.now() - connectStartedAt.current),
+      });
       console.error("startSession failed:", e);
     }
   }, [agentState, conversation, contactIdPlaceholder]);
+
+  /** Manual recovery. Before this existed, a failure was permanent until reload. */
+  const handleRetry = useCallback(() => {
+    track("chat_retry_clicked", { failure_kind: failureKind });
+    setFailureKind(null);
+    setAgentState("disconnected");
+    startTextSession();
+  }, [failureKind, startTextSession]);
 
   // Auto-connect on mount
   useEffect(() => {
@@ -201,22 +242,20 @@ export default function Page() {
     };
   }, [agentState, conversation]);
 
-  const handleRetry = useCallback(() => {
-    track("chat_retry_clicked", { failure_kind: failureKind });
-    setFailureKind(null);
-    startTextSession();
-  }, [failureKind, startTextSession]);
-
   const handleSendText = useCallback(() => {
     const trimmed = textInput.trim();
     if (!trimmed) return;
     if (agentState !== "connected") return;
 
-    userMsgCountRef.current += 1;
-    track("chat_message_sent", { message_index: userMsgCountRef.current });
     setTextInput("");
     setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
     conversation.sendUserMessage(trimmed);
+
+    userMsgCount.current += 1;
+    track("chat_message_sent", {
+      message_index: userMsgCount.current,
+      message_length: trimmed.length, // length only — never the text itself
+    });
   }, [textInput, agentState, conversation]);
 
   const handleKeyDown = useCallback(
@@ -319,11 +358,8 @@ export default function Page() {
                       isConnected &&
                         "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]",
                       isTransitioning && "animate-pulse bg-amber-300",
-                      hasFailed &&
-                        "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]",
                       !isConnected &&
                         !isTransitioning &&
-                        !hasFailed &&
                         "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]"
                     )}
                   />
@@ -356,21 +392,19 @@ export default function Page() {
                         }
                         title={
                           <span className="text-base font-medium text-cf-navy">
-                            {hasFailed
-                              ? failureKind === "dropped"
-                                ? "Connection lost"
-                                : "Unable to connect"
-                              : isTransitioning
+                            {isTransitioning
                               ? "Connecting you now"
+                              : hasFailed
+                              ? "We couldn't reach the assistant"
                               : "How can we help with your transport?"}
                           </span>
                         }
                         description={
                           <span className="mx-auto block max-w-[320px] text-sm leading-relaxed font-light text-cf-slate">
-                            {hasFailed
-                              ? "Check your network and tap Retry, or call our team below."
-                              : isTransitioning
+                            {isTransitioning
                               ? "One moment while we bring up your session."
+                              : hasFailed
+                              ? "Tap Retry below, or call our team at (650) 262-7464."
                               : "Ask about scheduling a shipment, tracking a specimen in transit, or transport requirements."}
                           </span>
                         }
@@ -437,8 +471,8 @@ export default function Page() {
                         ? "Type your message here to get started…"
                         : hasFailed
                         ? failureKind === "dropped"
-                          ? "Connection lost – tap Retry"
-                          : "Unable to connect – tap Retry"
+                          ? "Connection lost — tap Retry to continue"
+                          : "Couldn't connect — tap Retry, or call us below"
                         : "Connecting to the assistant..."
                     }
                     className="h-10 border-0 bg-transparent text-sm font-light text-cf-navy shadow-none placeholder:text-cf-slate/70 focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
@@ -448,11 +482,9 @@ export default function Page() {
                   {hasFailed ? (
                     <Button
                       onClick={handleRetry}
-                      size="icon"
-                      className="size-9 shrink-0 rounded-full bg-cf-ocean text-white transition-colors hover:bg-cf-navy"
+                      className="h-9 shrink-0 rounded-full bg-cf-navy px-4 text-xs font-medium text-white transition-colors hover:bg-cf-ocean"
                     >
-                      <RotateCcwIcon className="size-4" />
-                      <span className="sr-only">Retry connection</span>
+                      Retry
                     </Button>
                   ) : (
                     <Button
