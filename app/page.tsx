@@ -87,6 +87,8 @@ export default function Page() {
 
   const connectStartedAt = useRef(0);
   const userMsgCount = useRef(0);
+  const pageLoadedAt = useRef(0);
+  const composerEngagedRef = useRef(false);
 
   const conversation = useConversation({
     textOnly: true,
@@ -206,6 +208,25 @@ export default function Page() {
     setAgentState("disconnected");
     startTextSession();
   }, [failureKind, startTextSession]);
+
+  /** Track first interaction with the composer — fires once per page load. */
+  const markComposerEngaged = useCallback(() => {
+    if (!composerEngagedRef.current) {
+      composerEngagedRef.current = true;
+      track("chat_composer_engaged", {
+        seconds_since_page_load: Math.round(
+          (performance.now() - pageLoadedAt.current) / 1000
+        ),
+        was_connected: agentState === "connected",
+      });
+    }
+    setComposerEngaged(true);
+  }, [agentState]);
+
+  // Capture page load time for analytics
+  useEffect(() => {
+    pageLoadedAt.current = performance.now();
+  }, []);
 
   // Auto-connect on mount
   useEffect(() => {
@@ -379,7 +400,7 @@ export default function Page() {
                 </div>
               </CardHeader>
 
-              <CardContent className="min-h-0 flex-1 overflow-hidden bg-white/55 p-0">
+              <CardContent className="ph-no-capture min-h-0 flex-1 overflow-hidden bg-white/55 p-0">
                 <Conversation className="cf-scroll h-full">
                   <ConversationContent className="flex min-w-0 flex-col gap-1 p-5 pb-2">
                     {messages.length === 0 ? (
@@ -463,8 +484,8 @@ export default function Page() {
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    onFocus={() => setComposerEngaged(true)}
-                    onPointerDown={() => setComposerEngaged(true)}
+                    onFocus={markComposerEngaged}
+                    onPointerDown={markComposerEngaged}
                     aria-label="Message the CryoFuture transport assistant"
                     placeholder={
                       isConnected
@@ -475,7 +496,7 @@ export default function Page() {
                           : "Couldn't connect — tap Retry, or call us below"
                         : "Connecting to the assistant..."
                     }
-                    className="h-10 border-0 bg-transparent text-sm font-light text-cf-navy shadow-none placeholder:text-cf-slate/70 focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
+                    className="ph-no-capture h-10 border-0 bg-transparent text-sm font-light text-cf-navy shadow-none placeholder:text-cf-slate/70 focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
                     disabled={!isConnected}
                   />
 
@@ -519,6 +540,7 @@ export default function Page() {
             {/* Speak to a live team member */}
             <a
               href="tel:+16502627464"
+              onClick={() => track("phone_cta_clicked", { user_messages: userMsgCount.current })}
               className="group flex w-full items-center justify-center gap-3 rounded-full border border-white/70 bg-white/60 px-4 py-2.5 shadow-[0_8px_28px_-14px_rgba(33,72,102,0.3)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-cf-blue/50 hover:bg-white/80 sm:px-5 sm:py-3"
             >
               <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-cf-navy text-white shadow-[0_4px_12px_-4px_rgba(33,72,102,0.55)] sm:size-9">
